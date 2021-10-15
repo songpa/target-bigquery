@@ -4,7 +4,21 @@ A [Singer](https://singer.io) target that writes data to Google BigQuery.
 
 
 ## OAuth support hotfix for Meltano
- 
+
+Update your meltano.yaml file.
+`pip_url` and `credentials_path: 'oauth'`
+
+```
+  loaders:
+  - name: target-bigquery
+    pip_url: git+https://github.com/songpa/target-bigquery.git@gke_hotfix
+    config:
+      project_id: 'your_project_id'
+      dataset_id: 'your_data_set'
+      credentials_path: 'oauth'
+
+```
+
 
 [![Python package](https://github.com/adswerve/target-bigquery/actions/workflows/python-package.yml/badge.svg)](https://github.com/adswerve/target-bigquery/actions/workflows/python-package.yml)
 
