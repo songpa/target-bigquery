@@ -2,6 +2,10 @@
 
 A [Singer](https://singer.io) target that writes data to Google BigQuery.
 
+
+## OAuth support hotfix for Meltano
+ 
+
 [![Python package](https://github.com/adswerve/target-bigquery/actions/workflows/python-package.yml/badge.svg)](https://github.com/adswerve/target-bigquery/actions/workflows/python-package.yml)
 
 `target-bigquery` works together with any other [Singer Tap] to move data from sources like [Braintree], [Freshdesk] and [Hubspot] to Google BigQuery. 

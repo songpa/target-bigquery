@@ -42,6 +42,10 @@ def ensure_dataset(project_id, dataset_id, location):
     from google.cloud.bigquery import DatasetReference
     client = bigquery.Client(project=project_id, location=location)
 
+    if os.environ['GOOGLE_APPLICATION_CREDENTIALS'] == 'oauth':
+        del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+
+
     dataset_ref = DatasetReference(project_id, dataset_id)
     try:
         client.create_dataset(dataset_ref)
