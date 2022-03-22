@@ -8,10 +8,11 @@
                 }
 """
 from tests import unittestcore
-from google.cloud.bigquery import SchemaField
+from google.cloud.bigquery import SchemaField, Client
 import json
 import os
-
+from decimal import Decimal
+import pandas as pd
 
 class TestComplexStreamLoadJob(unittestcore.BaseUnitTest):
 
@@ -146,6 +147,120 @@ class TestComplexStreamLoadJob(unittestcore.BaseUnitTest):
         # self.assertEqual(3, table.num_rows, msg="Number of rows mismatch")
         # self.assertIsNone(table.clustering_fields)
         # self.assertIsNone(table.partitioning_type)
+
+    def test_complex_stream_decimal_schema_valid(self):
+
+        # DATA AND CONFIG
+        input_file = os.path.join(os.path.join(
+            os.path.join(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests'), 'rsc'),
+            'data'), 'facebook_stream_decimal_test_schema_valid.json')
+
+        config_file = os.path.join(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'sandbox'),
+                                   'target-config.json')
+
+        # VERIFY INPUTS
+        data = []
+        with open(input_file) as f:
+            for line in f:
+                data.append(json.loads(line))
+
+        # verify input data and schema
+        assert data[0]['schema']['properties']["budget_remaining"]["multipleOf"] == 1e-03
+        assert data[1]['record']["budget_remaining"] == 5000000.1
+        assert data[2]['record']["budget_remaining"] == 5000000.12
+        assert data[3]['record']["budget_remaining"] == 57573500.123
+        assert data[4]['record']["budget_remaining"] == 2450980.0
+        assert data[5]['record']["budget_remaining"] == 2450980.0
+
+        # RUN SYNC
+        from target_bigquery import main
+
+        self.set_cli_args(
+            stdin=input_file,
+            config=config_file,
+            processhandler="load-job"
+        )
+
+        ret = main()
+        state = self.get_state()[-1]
+        print(state)
+        self.assertEqual(ret, 0, msg="Exit code is not 0!")
+
+        # VERIFY OUTPUTS
+
+        config = json.load(open(config_file))
+        project_id = config["project_id"]
+        dataset_id = config["dataset_id"]
+
+        bq_client = Client(project=project_id)
+        bq_schemas_dict = {}
+
+        # Make an API request.
+        tables_http_iterator = bq_client.list_tables(project_id + '.' + dataset_id)
+
+        for table_list_item in tables_http_iterator:
+            table = bq_client.get_table(
+                f"{table_list_item.project}.{table_list_item.dataset_id}.{table_list_item.table_id}")
+
+            bq_schemas_dict.update({table.table_id: table.schema})
+
+        # verify schema
+        stream = "adsets"
+        try:
+            test_field = bq_schemas_dict[stream][7]
+        except:
+            stream = stream+"_dev"
+            test_field = bq_schemas_dict[stream][7]
+
+
+        assert test_field.name == "budget_remaining"
+        assert test_field.field_type in ["NUMERIC", "DECIMAL"]  # NUMERIC is the same as DECIMAL
+        assert test_field.precision == 32
+        assert test_field.scale == 3
+
+        # verify data
+
+        query_string = f"SELECT budget_remaining FROM `{project_id}.{dataset_id}.{stream}`"
+
+        dataframe = (
+            bq_client.query(query_string)
+            .result()
+            .to_dataframe()
+        )
+        actual = dataframe["budget_remaining"]
+        expected = pd.Series([Decimal('2450980'), Decimal('2450980'), Decimal('5000000.1'),
+                              Decimal('5000000.12'), Decimal('57573500.123')])
+
+        assert actual.equals(expected)
+
+    def test_complex_stream_decimal_schema_invalid(self):
+        file = os.path.join(os.path.join(
+            os.path.join(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests'), 'rsc'),
+            'data'), 'facebook_stream_decimal_test_schema_invalid.json')
+
+        data = []
+        with open(file) as f:
+            for line in f:
+                data.append(json.loads(line))
+
+        assert data[0]['schema']['properties']["budget_remaining"]["multipleOf"] == 1e-02
+        assert data[1]['record']["budget_remaining"] == 5000000.1
+        assert data[2]['record']["budget_remaining"] == 5000000.12
+        assert data[3]['record']["budget_remaining"] == 57573500.123
+
+        from target_bigquery import main
+
+        self.set_cli_args(
+            stdin=file,
+            config=os.path.join(
+                os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'sandbox'),
+                'target-config.json'),
+            processhandler="load-job"
+        )
+        ret = main()
+        self.assertEqual(ret, 2, msg="Exit code is not 2!")  # load must fail
+        # weird error: Failed validating 'type' in schema['properties']['daily_budget']:
+        # I changed nothing about daily_budget, I made budget_remaining invalid
 
     def test_complex_stream_with_tables_config(self):
         from target_bigquery import main
