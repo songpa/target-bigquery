@@ -199,7 +199,8 @@ def convert_field_type(field_property):
 
     elif (("items" in field_property) and ("properties" not in field_property["items"])):
 
-        field_type_bigquery = conversion_dict[field_property['items']['type'][0]]
+        # field_type_bigquery = conversion_dict[field_property['items']['type'][0]]
+        field_type_bigquery = "string"
 
     else:
 

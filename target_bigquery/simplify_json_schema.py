@@ -593,7 +593,8 @@ def _helper_simplify(root_schema, child_schema):
     ## Refs override all other type definitions
     if _is_ref(child_schema):
         try:
-            ret_schema = _helper_simplify(root_schema, get_ref(root_schema, child_schema['$ref']))
+            # ret_schema = _helper_simplify(root_schema, get_ref(root_schema, child_schema['$ref']))
+            ret_schema = child_schema
 
         except RecursionError:
             raise JSONSchemaError('`$ref` path "{}" is recursive'.format(get_ref(root_schema, child_schema['$ref'])))
