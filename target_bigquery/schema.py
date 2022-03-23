@@ -223,6 +223,7 @@ def determine_field_mode(field_property):
 
         field_mode = 'NULLABLE'
 
+    field_mode = 'NULLABLE'
     return field_mode
 
 
